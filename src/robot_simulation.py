@@ -111,8 +111,7 @@ def test():
         print(r)
         time.sleep(0.2)
 
-
     r.__del__()
+
+
 test()
-
-
