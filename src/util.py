@@ -26,11 +26,11 @@ def copy_and_paste_image(paste_to_: np.ndarray, copy_from_: np.ndarray, middle_p
     # insert alpha channel if missing
     if paste_to_.shape[C] == 3:
         shape = paste_to_.shape
-        print("b: ", shape)
+        # print("b: ", shape)
         shape = list(shape)
         shape[2] += 1
         shape = tuple(shape)
-        print("a: ", shape)
+        # print("a: ", shape)
         paste_to = np.ones(shape = shape, dtype=np.uint8)*255
         paste_to[:, :, 0:3] = paste_to_.copy()
     else:
@@ -96,9 +96,9 @@ def copy_and_paste_image(paste_to_: np.ndarray, copy_from_: np.ndarray, middle_p
     # creating a reference slice of the part of the image I have to copy
     return_img_slice = return_img[paste_to_y1:paste_to_y2, paste_to_x1:paste_to_x2, :]
 
-    print(paste_to_y1, paste_to_y2, paste_to_x1, paste_to_x2)
+    # print(paste_to_y1, paste_to_y2, paste_to_x1, paste_to_x2)
 
-    print(return_img_slice.shape, copy_from_slice.shape)
+    # print(return_img_slice.shape, copy_from_slice.shape)
     assert return_img_slice.shape == copy_from_slice.shape, "something is wrong in the code"
 
     # putting the data in, only if alpha channel is different from 0

@@ -4,6 +4,7 @@ import cv2
 import time
 from threading import Thread
 import numpy as np
+import sys
 # constant for the "shape" of the image
 from image_shape_definition import X, Y, C, BLUE, GREEN, RED, ALPHA
 
@@ -37,15 +38,30 @@ DEFAULT_START_POS_Y: float = 0.
 DEFAULT_START_ANGLE: float = 0.
 
 # the resolution of the top view
-DEFAULT_TOP_VIEW_RES_X: int = 700
+DEFAULT_TOP_VIEW_RES_X: int = 1100
 # the resolution of the top view
-DEFAULT_TOP_VIEW_RES_Y: int = 1200
+DEFAULT_TOP_VIEW_RES_Y: int = 700
 
 # whether the top vew is enabled or not
 DEFAULT_TOP_VIEW_ENABLE: bool = True
 
 # the eventual zoom of the top view
 DEFAULT_TOP_VIEW_ZOOM: float = 1.
+
+# the time step of the simulation, the lower it is the more precise the simulation is
+DEFAULT_SIMULATION_TIME_STEP: float = 0.001
+
+
+# sum to an x value a vector and return the new x vaue
+def __vec_sum_x(x: int, angle: float, module: float) -> int:
+    return int(x + np.cos(angle)*module)
+
+
+# sum to an y value a vector and return the new x vaue
+def __vec_sum_y(y: int, angle: float, module: float) -> int:
+    return int(y + np.sin(angle)*module)
+
+
 class Robot:
     def __init__(self,
                  map_path: str,
@@ -61,7 +77,8 @@ class Robot:
                  top_view_res_x: float = DEFAULT_TOP_VIEW_RES_X,
                  top_view_res_y: float = DEFAULT_TOP_VIEW_RES_Y,
                  top_view_enable: bool = DEFAULT_TOP_VIEW_ENABLE,
-                 top_view_zoom: float = DEFAULT_TOP_VIEW_ZOOM
+                 top_view_zoom: float = DEFAULT_TOP_VIEW_ZOOM,
+                 simulation_time_step: float = DEFAULT_SIMULATION_TIME_STEP
                  ):
 
         # x position in cm of the robot
@@ -90,19 +107,25 @@ class Robot:
         self.__speed_right: int = 0
         # a boolean flag used to stopp the updater thread
         self.__thread_running: bool = True
-        # launching the thread that update the position
-        self.__updater_thread = Thread(target=self.__position_updater, args=())
-        self.__updater_thread.start()
         # the image representing the robot itself
         self.__robot_image = self.__get_robot_image()
         # resolution of the rop view
         self.__top_view_res_x = top_view_res_x
         # resolution of the rop view
         self.__top_view_res_y = top_view_res_y
-        # whether the top view is enable or not
-        self.__top_view_enable = top_view_enable
         # the zoom of the top view
         self.__top_view_zoom = top_view_zoom
+        # the time step of the simulation
+        self.__simulation_time_step = simulation_time_step
+
+        # launch the top view
+        if top_view_enable:
+            self.__top_view_thread = Thread(target=self.__update_top_view, args=())
+            self.__top_view_thread.start()
+        # launching the thread that update the position
+        self.__updater_thread = Thread(target=self.__position_updater, args=())
+        self.__updater_thread.start()
+
     def __repr__(self):
         return self.__str__()
 
@@ -122,10 +145,9 @@ class Robot:
         max_pos_x = self.__pixel_to_cm(self.__map.shape[X])
         max_pos_y = self.__pixel_to_cm(self.__map.shape[Y])
 
-        print("hello from thread?????")
-        while self.__thread_running:
+        time_sample = time.time()
 
-            print("hello from thread")
+        while self.__thread_running:
 
             self.__pos_x += self.__speed_left/100
             self.__pos_y += self.__speed_right/100
@@ -134,43 +156,74 @@ class Robot:
             self.__pos_x = np.clip(self.__pos_x, min_pos_x, max_pos_x)
             self.__pos_y = np.clip(self.__pos_y, min_pos_y, max_pos_y)
 
-            time.sleep(0.1)
+            time_to_wait = self.__simulation_time_step - (time.time()-time_sample)
+            if time_to_wait < 0:
+                print("Lack of precision due to CPU too slow... try increase the simulation time step", file=sys.stderr)
+            else:
+                time.sleep(time_to_wait)
+            time_sample = time.time()
 
-            if self.__top_view_enable:
-                self.__update_top_view()
+    #sum to a x value a vector
 
-    #update the top view
+    # update the top view
     def __update_top_view(self):
+        while self.__thread_running:
+            robot = self.__get_robot_image()
+            image_center = tuple(np.array(robot.shape[1::-1]) / 2)
+            rot_mat = cv2.getRotationMatrix2D(image_center, self.__angle*180/np.pi, 1.0)
+            robot = cv2.warpAffine(robot, rot_mat, robot.shape[1::-1], flags=cv2.INTER_LINEAR)
 
-        # put the robot inside the map
-        img = copy_and_paste_image(
-            paste_to_=self.__map,
-            copy_from_=self.__get_robot_image(),
-            middle_point_x=self.__cm_to_pixel(self.__pos_x),
-            middle_point_y=self.__cm_to_pixel(self.__pos_y),
-        )
+            # put the robot inside the map
+            img = copy_and_paste_image(
+                paste_to_=self.__map,
+                copy_from_=robot,
+                middle_point_x=self.__cm_to_pixel(self.__pos_x),
+                middle_point_y=self.__cm_to_pixel(self.__pos_y),
+            )
 
-        # eventual zoom the image
-        if self.__top_view_zoom > 1:
-            new_res
+            # eventual zoom the image
+            if self.__top_view_zoom > 1:
+                new_res_x = self.__map.shape[X]/self.__top_view_zoom
+                new_res_y = self.__map.shape[Y]/self.__top_view_zoom
 
-        # resize the image according to user inputs
-        og_res_x = self.__map.shape[X]
-        og_res_y = self.__map.shape[Y]
+                center_x = self.__cm_to_pixel(self.__pos_x)
+                center_y = self.__cm_to_pixel(self.__pos_y)
 
-        if og_res_x/self.__top_view_res_x > og_res_y/self.__top_view_res_y:
-            # res x is ok, scale res y
-            new_res_x = self.__top_view_res_x
-            new_res_y = int(self.__top_view_res_x/og_res_x*og_res_y)
-        else:
-            # res y is ok, scale res x
-            new_res_y = self.__top_view_res_y
-            new_res_x = int(self.__top_view_res_y / og_res_y * og_res_x)
+                # the new coordinates of the new map
+                x1 = int(center_x-new_res_x/2)
+                y1 = int(center_y-new_res_y/2)
+                x2 = int(center_x + new_res_x / 2)
+                y2 = int(center_y + new_res_y / 2)
 
-        img = cv2.resize(img, (new_res_x, new_res_y))
+                # be careful not to overflow
+                x1 = np.clip(x1, 0, img.shape[X])
+                x2 = np.clip(x2, 0, img.shape[X])
+                y1 = np.clip(y1, 0, img.shape[Y])
+                y2 = np.clip(y2, 0, img.shape[Y])
 
-        cv2.imshow("TOP VIEW use Robot(..., top_view_enable = False to disable)", img)
-        cv2.waitKey(1)
+                # zoom the image
+                img = img[y1:y2, x1:x2, :]
+
+            # resize the image according to user inputs
+            og_res_x = img.shape[X]
+            og_res_y = img.shape[Y]
+
+            if og_res_x/self.__top_view_res_x > og_res_y/self.__top_view_res_y:
+                # res x is ok, scale res y
+                new_res_x = self.__top_view_res_x
+                new_res_y = int(self.__top_view_res_x/og_res_x*og_res_y)
+            else:
+                # res y is ok, scale res x
+                new_res_y = self.__top_view_res_y
+                new_res_x = int(self.__top_view_res_y / og_res_y * og_res_x)
+
+            img = cv2.resize(img, (new_res_x, new_res_y))
+
+            cv2.imshow("TOP VIEW use Robot(..., top_view_enable = False) to disable", img)
+            cv2.waitKey(1)
+            time.sleep(0.05)
+
+    # set the speed of the motors
     def set_motors_speeds(self, right: int, left: int):
         assert -255 <= right <= 255 and -255 <= left <= 255, "the speeds of the motor MUST be in the -255 to 255 range"
         self.__speed_right = right
@@ -183,8 +236,6 @@ class Robot:
         x_max = float(np.abs(self.__camera_x_offset)) + self.__camera_x_dimension/2
         y_max = self.__robot_wight/2
 
-        print(type(x_max), type(y_max))
-
         # find the biggest dimension
         dimension_max = x_max
         if y_max > dimension_max:
@@ -192,8 +243,6 @@ class Robot:
 
         # find rhe final dimension with a 1.5 safety margin
         dimension = self.__cm_to_pixel(dimension_max*2*np.sqrt(2)*1.5)
-
-        print("dimension", type(dimension))
 
         # create the image
         image = np.zeros(shape=[dimension, dimension, 4], dtype=np.uint8)
@@ -245,9 +294,7 @@ class Robot:
 
         image[:, :, ALPHA] = temp
 
-
         return image
-
 
     def __pixel_to_cm(self, pixel: int) -> float:
         inches = float(pixel)/self.__ppi
@@ -255,13 +302,14 @@ class Robot:
         return cm
 
     def __cm_to_pixel(self, cm: float) -> int:
-        inches = cm / 2.54;
+        inches = cm / 2.54
         pixel = int(inches * self.__ppi)
         return pixel
 
+
 def test():
 
-    r = Robot("../maps/map_1.png")
+    r = Robot("../maps/map_1.png", top_view_zoom=3, start_angle=-3.1415/2)
 
     # image = r.get_robot_image()
     #
