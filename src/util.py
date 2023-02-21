@@ -74,12 +74,12 @@ def copy_and_paste_image(paste_to_: np.ndarray, copy_from_: np.ndarray, middle_p
         copy_from_y1 -= offset
 
     if paste_to_x2 > paste_to.shape[X]:
-        offset = paste_to_y1-paste_to.shape[X]
+        offset = paste_to_x2-paste_to.shape[X]
         paste_to_x2 -= offset
         copy_from_x2 -= offset
 
     if paste_to_y2 > paste_to.shape[Y]:
-        offset = paste_to_y1-paste_to.shape[Y]
+        offset = paste_to_y2-paste_to.shape[Y]
         paste_to_y2 -= offset
         copy_from_y2 -= offset
 
