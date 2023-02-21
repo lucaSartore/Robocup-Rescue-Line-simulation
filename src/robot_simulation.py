@@ -1,5 +1,8 @@
-import cv2
 # this file has the main class that allows you to simulate your robot
+
+import cv2
+import time
+from threading import Thread
 
 # the default dimension in centimeter that the camera see horizontally
 DEFAULT_CAMERA_X_DIMENSION: float = 10.
@@ -43,16 +46,35 @@ class Robot:
                  _robot_wight: float = DEFAULT_ROBOT_WIGHT
                  ):
 
+        # x position in cm of the robot
         self.pos_x: float = start_pos_x
+        # y position in cm of the robot
         self.pos_y: float = start_pos_y
+        # x angle of the robot orientation (in radians)
         self.angle: float = start_angle
+        # maximum speed of the robot in cm/s
         self.max_speed: float = _max_speed
+        # pixel per inch of the map the robot has memorized
         self.ppi: float = _ppi
+        # the map the robot has memorized
         self.map = cv2.imread(map_path)
+        # the dimension in cm of the horizontal camera view
         self.camera_x_dimension: float = _camera_x_dimension
+        # the dimension in cm of the vertical camera view
         self.camera_y_dimension: float = _camera_y_dimension
+        # the offset the camera has from the center of the robot in cm
         self.camera_x_offset: float = _camera_x_offset
+        # the wight of the robot
         self.robot_wight: float = _robot_wight
+        # relative speed (from -255 to 255) of the left motor
+        self.speed_left: int = 0
+        # relative speed (from -255 to 255) of the right motor
+        self.speed_right: int = 0
+        # a boolean flag used to stopp the updater thread
+        self.thread_running: bool = True
+        # launching the thread that update the position
+        self.updater_thread = Thread(target=self.position_updater, args=())
+        self.updater_thread.start()
 
     def __repr__(self):
         return self.__str__()
@@ -60,10 +82,29 @@ class Robot:
     def __str__(self):
         return f"Robot at X:{self.pos_x} Y:{self.pos_y} angle:{self.angle}"
 
+    # disable the thread when finish using it
+    def __del__(self):
+        self.thread_running = False
+
+    # the thread that constantly update the position of the robot
+    def position_updater(self):
+        while self.thread_running:
+
+            self.pos_x += self.speed_left
+            self.pos_y += self.speed_right
+
+            time.sleep(0.1)
+
 
 def test():
 
     r = Robot("../maps/map_1.png")
 
+    r.speed_right = 1
+    r.speed_left = -2
+
+    for i in range(10):
+        print(r)
+        time.sleep(0.2)
 
 test()
