@@ -8,7 +8,11 @@ from robot_simulation import Robot
 def main():
     # create the instance of the
     # robor
-    robot = Robot('../maps/map_1.png', top_view_zoom=4)
+
+    # windows
+    robot = Robot('../maps/map_1.png')
+    # linux
+    robot = Robot('../maps/map_1.png', top_view_enable=False)
 
     while True:
         # get the image
@@ -41,6 +45,9 @@ def main():
 
         cv2.imshow("view", cv2.resize(gray, (500, 500)))
         cv2.waitKey(1)
+
+        # only in linux
+        #robot.update_top_view()
 
     # delete the robot, to stop the treads
     robot.__del__()

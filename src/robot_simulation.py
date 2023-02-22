@@ -248,8 +248,14 @@ class Robot:
         self.__output_resolution_y = output_resolution_y
         # launch the top view
         if top_view_enable:
-            self.__top_view_thread = Thread(target=self.__update_top_view, args=())
+            self.__top_view_thread = Thread(target=self.__update_top_view_thread, args=())
             self.__top_view_thread.start()
+            if not sys.platform.startswith('win'):
+                print("the automatic top view generation don't work in linux, and is untested in macos, disable",
+                      "it using: top_view_enable=False in the robot constructor",
+                      "actualy the function works if you don't use cv2.imshow in your program, but it will broke"
+                      "if you try to do so",
+                      file=sys.stderr)
         # launching the thread that update the position
         self.__updater_thread = Thread(target=self.__position_updater, args=())
         self.__updater_thread.start()
@@ -373,63 +379,67 @@ class Robot:
                 time.sleep(time_to_wait)
             time_sample = time.time()
 
-    # update the top view
-    def __update_top_view(self):
+    # a thread that constantly update the top view (only works in windows)
+    def __update_top_view_thread(self):
         while self.__thread_running:
-            robot = self.__get_robot_image()
-            image_center = tuple(np.array(robot.shape[1::-1]) / 2)
-            rot_mat = cv2.getRotationMatrix2D(image_center, self.__angle*180/np.pi, 1.0)
-            robot = cv2.warpAffine(robot, rot_mat, robot.shape[1::-1], flags=cv2.INTER_LINEAR)
+            self.update_top_view()
 
-            # put the robot inside the map
-            img = copy_and_paste_image(
-                paste_to_=self.__map,
-                copy_from_=robot,
-                middle_point_x=self.__cm_to_pixel(self.__pos_x),
-                middle_point_y=self.__cm_to_pixel(self.__pos_y),
-            )
+    # update the top view
+    def update_top_view(self):
+        robot = self.__get_robot_image()
+        image_center = tuple(np.array(robot.shape[1::-1]) / 2)
+        rot_mat = cv2.getRotationMatrix2D(image_center, self.__angle*180/np.pi, 1.0)
+        robot = cv2.warpAffine(robot, rot_mat, robot.shape[1::-1], flags=cv2.INTER_LINEAR)
 
-            # eventual zoom the image
-            if self.__top_view_zoom > 1:
-                new_res_x = self.__map.shape[X]/self.__top_view_zoom
-                new_res_y = self.__map.shape[Y]/self.__top_view_zoom
+        # put the robot inside the map
+        img = copy_and_paste_image(
+            paste_to_=self.__map,
+            copy_from_=robot,
+            middle_point_x=self.__cm_to_pixel(self.__pos_x),
+            middle_point_y=self.__cm_to_pixel(self.__pos_y),
+        )
 
-                center_x = self.__cm_to_pixel(self.__pos_x)
-                center_y = self.__cm_to_pixel(self.__pos_y)
+        # eventual zoom the image
+        if self.__top_view_zoom > 1:
+            new_res_x = self.__map.shape[X]/self.__top_view_zoom
+            new_res_y = self.__map.shape[Y]/self.__top_view_zoom
 
-                # the new coordinates of the new map
-                x1 = int(center_x - new_res_x/2)
-                y1 = int(center_y - new_res_y/2)
-                x2 = int(center_x + new_res_x / 2)
-                y2 = int(center_y + new_res_y / 2)
+            center_x = self.__cm_to_pixel(self.__pos_x)
+            center_y = self.__cm_to_pixel(self.__pos_y)
 
-                # be careful not to overflow
-                x1 = np.clip(x1, 0, img.shape[X])
-                x2 = np.clip(x2, 0, img.shape[X])
-                y1 = np.clip(y1, 0, img.shape[Y])
-                y2 = np.clip(y2, 0, img.shape[Y])
+            # the new coordinates of the new map
+            x1 = int(center_x - new_res_x/2)
+            y1 = int(center_y - new_res_y/2)
+            x2 = int(center_x + new_res_x / 2)
+            y2 = int(center_y + new_res_y / 2)
 
-                # zoom the image
-                img = img[y1:y2, x1:x2, :]
+            # be careful not to overflow
+            x1 = np.clip(x1, 0, img.shape[X])
+            x2 = np.clip(x2, 0, img.shape[X])
+            y1 = np.clip(y1, 0, img.shape[Y])
+            y2 = np.clip(y2, 0, img.shape[Y])
 
-            # resize the image according to user inputs
-            og_res_x = img.shape[X]
-            og_res_y = img.shape[Y]
+            # zoom the image
+            img = img[y1:y2, x1:x2, :]
 
-            if og_res_x/self.__top_view_res_x > og_res_y/self.__top_view_res_y:
-                # res x is ok, scale res y
-                new_res_x = self.__top_view_res_x
-                new_res_y = int(self.__top_view_res_x/og_res_x*og_res_y)
-            else:
-                # res y is ok, scale res x
-                new_res_y = self.__top_view_res_y
-                new_res_x = int(self.__top_view_res_y / og_res_y * og_res_x)
+        # resize the image according to user inputs
+        og_res_x = img.shape[X]
+        og_res_y = img.shape[Y]
 
-            img = cv2.resize(img, (new_res_x, new_res_y))
+        if og_res_x/self.__top_view_res_x > og_res_y/self.__top_view_res_y:
+            # res x is ok, scale res y
+            new_res_x = self.__top_view_res_x
+            new_res_y = int(self.__top_view_res_x/og_res_x*og_res_y)
+        else:
+            # res y is ok, scale res x
+            new_res_y = self.__top_view_res_y
+            new_res_x = int(self.__top_view_res_y / og_res_y * og_res_x)
 
-            cv2.imshow("TOP VIEW use Robot(..., top_view_enable = False) to disable", img)
-            cv2.waitKey(1)
-            #time.sleep(0.001)
+        img = cv2.resize(img, (new_res_x, new_res_y))
+
+        cv2.imshow("TOP VIEW use Robot(..., top_view_enable = False) to disable", img)
+        cv2.waitKey(1)
+        #time.sleep(0.001)
 
     # return an image that represent the robot for the visualization
     def __get_robot_image(self):

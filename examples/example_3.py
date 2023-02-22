@@ -10,8 +10,11 @@ from robot_simulation import Robot
 
 def main():
     # create the instance of the
-    # robor
-    robot = Robot('../maps/map_2.png', top_view_zoom=4)
+    # robot
+    # windows
+    robot = Robot('../maps/map_1.png')
+    # linux
+    # robot = Robot('../maps/map_1.png', top_view_enable=False)
 
     # create a mask that consider only the pixels around the border
     corner_mask = np.ones(shape=(64,64),dtype=np.uint8)*255
@@ -85,6 +88,9 @@ def main():
         # Display the image with the circle
         cv2.imshow('Line Follower', cv2.resize(img, (500, 500)))
         cv2.waitKey(1)
+
+        # only in linux
+        # robot.update_top_view()
     # delete the robot, to stop the treads
     robot.__del__()
 
