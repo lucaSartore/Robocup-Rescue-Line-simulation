@@ -68,15 +68,34 @@ def vec_sum_y(y: float, angle: float, module: float) -> float:
 
 class Robot:
 
+    """
+    Robot is a class that allows you to simulate a robot.
+
+    to customize it you can change the default parameter when you construct it...
+
+    the robot has one output: the view of the camera that you can access using `get_camera_view`
+
+    and one input: the speed of the motors, that you can control using `set_motors_speeds`
+    """
+
     # set the speed of the motors
     def set_motors_speeds(self, right: int, left: int):
+        """use this function to set the speed of the motors of the robot
+
+        Args:
+            right (int): speed to set to the right motor, has to be in the -255 to 255 range
+            left (int): speed to set to the left motor, has to be in the -255 to 255 range
+
+        """
         assert -255 <= right <= 255 and -255 <= left <= 255, "the speeds of the motor MUST be in the -255 to 255 range"
         self.__speed_right = right
         self.__speed_left = left
 
     # return the image
     def get_camera_view(self) -> np.ndarray:
-
+        """
+        use this function to get what the robot is seeing from the camera
+        """
         image = self.__map
         center = (
             self.__cm_to_pixel(
@@ -126,7 +145,7 @@ class Robot:
                  ppi: int = DEFAULT_PPI,
                  camera_x_dimension: float = DEFAULT_CAMERA_X_DIMENSION,
                  camera_y_dimension: float = DEFAULT_CAMERA_Y_DIMENSION,
-                 camera_x_offset: float = DEFAULT_CAMERA_X_OFFSET,
+                 camera_y_offset: float = DEFAULT_CAMERA_X_OFFSET,
                  robot_wight: float = DEFAULT_ROBOT_WIGHT,
                  top_view_res_x: float = DEFAULT_TOP_VIEW_RES_X,
                  top_view_res_y: float = DEFAULT_TOP_VIEW_RES_Y,
@@ -136,6 +155,54 @@ class Robot:
                  output_resolution_x: int = DEFAULT_OUTPUT_RESOLUTION_X,
                  output_resolution_y: int = DEFAULT_OUTPUT_RESOLUTION_Y
                  ):
+
+        """
+        this is the default constructor, you can use it to do create an instance of the robot
+
+        Args:
+            map_path (str): the path of an image that contains a simulation map
+
+            start_pos_x (float): the starting position of the robot in cm, make share to keep it inside the map,
+                                    the x ax go left to right.
+
+            start_pos_y (float): the starting position of the robot in cm, make share to keep it inside the map,
+                                    the y ax go top to bottom.
+
+            start_angle (float): the starting angle of the robot in radiant,
+                                    an alge of 0 make the robot facing up,
+                                    the direction of rotation is counter clock wise
+
+            max_speed (float): the maximum speed the robot cna go, in cm/s
+
+            ppi (int): the pixel per inch of the map loaded
+
+            camera_x_dimension (float): how many cm of the floor the camera can see horizontally
+
+            camera_y_dimension (float): how many cm of the floor the camera can see horizontally
+
+            camera_y_offset (float): how many cm the camera is offset from the center of the robot
+
+            robot_wight (float): the wight in cm of the robot, this effects the turning radius
+
+            top_view_res_x (float): the x resolution of the top view the robot will create
+
+            top_view_res_y (float): the y resolution of the top view the robot will create
+
+            top_view_enable (bool): whether the top vew is or not, you can disable it if your CPU is struggling
+
+            top_view_zoom (float): the xoom of the top view, it is used if you are loading a big map
+
+            simulation_time_step (float): what is the lowest time step (in seconds) the simulation will consider,
+                                        if this number is lower your simulation will be more precise, but heavier for
+                                        your CPU
+
+            output_resolution_x (int): the x resolution of the image that the robot will give you as a result when
+                                        calling `get_camera_view`
+
+            output_resolution_y (int): the y resolution of the image that the robot will give you as a result when
+                                        calling `get_camera_view`
+        """
+
 
         # x position in cm of the robot
         self.__pos_x: float = start_pos_x
@@ -154,7 +221,7 @@ class Robot:
         # the dimension in cm of the vertical camera view
         self.__camera_y_dimension: float = camera_y_dimension
         # the offset the camera has from the center of the robot in cm
-        self.__camera_x_offset: float = camera_x_offset
+        self.__camera_x_offset: float = camera_y_offset
         # the wight of the robot
         self.__robot_wight: float = robot_wight
         # relative speed (from -255 to 255) of the left motor
