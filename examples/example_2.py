@@ -76,7 +76,7 @@ def main():
             robot.set_motors_speeds(speed_right, speed_left)
 
         # Display the image with the circle
-        cv2.imshow('Line Follower', img)
+        cv2.imshow('Line Follower', cv2.resize(img, (500, 500)))
         cv2.waitKey(1)
     # delete the robot, to stop the treads
     robot.__del__()
