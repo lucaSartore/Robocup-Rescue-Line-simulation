@@ -12,9 +12,9 @@ def main():
     # create the instance of the
     # robot
     # windows
-    robot = Robot('../maps/map_1.png')
+    robot = Robot('../maps/map_2.png')
     # linux
-    # robot = Robot('../maps/map_1.png', top_view_enable=False)
+    # robot = Robot('../maps/map_2.png', top_view_enable=False)
 
     # create a mask that consider only the pixels around the border
     corner_mask = np.ones(shape=(64,64),dtype=np.uint8)*255
