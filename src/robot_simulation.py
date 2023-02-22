@@ -49,20 +49,69 @@ DEFAULT_TOP_VIEW_ENABLE: bool = True
 DEFAULT_TOP_VIEW_ZOOM: float = 1.
 
 # the time step of the simulation, the lower it is the more precise the simulation is
-DEFAULT_SIMULATION_TIME_STEP: float = 0.001
+DEFAULT_SIMULATION_TIME_STEP: float = 0.01
+
+# the resolution of the image view by the robot
+DEFAULT_OUTPUT_RESOLUTION_X: int = 64
+DEFAULT_OUTPUT_RESOLUTION_Y: int = 64
 
 
 # sum to an x value a vector and return the new x vaue
-def __vec_sum_x(x: int, angle: float, module: float) -> int:
-    return int(x + np.cos(angle)*module)
+def vec_sum_x(x: float, angle: float, module: float) -> float:
+    return x - np.sin(angle)*module
 
 
 # sum to an y value a vector and return the new x vaue
-def __vec_sum_y(y: int, angle: float, module: float) -> int:
-    return int(y + np.sin(angle)*module)
+def vec_sum_y(y: float, angle: float, module: float) -> float:
+    return y - np.cos(angle)*module
 
 
 class Robot:
+
+    # set the speed of the motors
+    def set_motors_speeds(self, right: int, left: int):
+        assert -255 <= right <= 255 and -255 <= left <= 255, "the speeds of the motor MUST be in the -255 to 255 range"
+        self.__speed_right = right
+        self.__speed_left = left
+
+    # return the image
+    def get_camera_view(self) -> np.ndarray:
+
+        image = self.__map
+        center = (
+            self.__cm_to_pixel(
+                vec_sum_x(
+                    self.__pos_x,
+                    self.__angle,
+                    self.__camera_x_offset
+                )
+            ),
+            self.__cm_to_pixel(
+                vec_sum_y(
+                    self.__pos_y,
+                    self.__angle,
+                    self.__camera_x_offset
+                )
+            ),
+        )
+        theta = self.__angle
+        width = self.__cm_to_pixel(self.__camera_x_dimension)
+        height = self.__cm_to_pixel(self.__camera_y_dimension)
+
+        theta *= 180/np.pi
+
+        shape = (image.shape[1], image.shape[0])  # cv2.warpAffine expects shape in (length, height)
+
+        matrix = cv2.getRotationMatrix2D(center=center, angle=theta, scale=1)
+        image = cv2.warpAffine(src=image, M=matrix, dsize=shape)
+
+        x = int(center[0] - width / 2)
+        y = int(center[1] - height / 2)
+
+        image = image[y:y + height, x:x + width]
+
+        return image
+
     def __init__(self,
                  map_path: str,
                  start_pos_x: float = DEFAULT_START_POS_X,
@@ -147,10 +196,92 @@ class Robot:
 
         time_sample = time.time()
 
+        input_time = time.time()
+
+        c = 0
+
         while self.__thread_running:
 
-            self.__pos_x += self.__speed_left/100
-            self.__pos_y += self.__speed_right/100
+            c += 1
+
+            actual_time_stamp = (time.time()-input_time)/c
+
+            # self.__pos_x += self.__speed_left/100
+            # self.__pos_y += self.__speed_right/100
+
+            # middle point of the right track of the robot
+            right_track_x = vec_sum_x(
+                self.__pos_x,
+                self.__angle - np.pi/2,
+                self.__robot_wight/2
+                )
+            right_track_y = vec_sum_y(
+                self.__pos_y,
+                self.__angle - np.pi / 2,
+                self.__robot_wight / 2
+            )
+
+            # middle point of the left track of the robot
+            left_track_x = vec_sum_x(
+                self.__pos_x,
+                self.__angle + np.pi / 2,
+                self.__robot_wight / 2
+            )
+            left_track_y = vec_sum_y(
+                self.__pos_y,
+                self.__angle + np.pi / 2,
+                self.__robot_wight / 2
+            )
+
+            # update the position using the speed information
+            right_track_x = vec_sum_x(
+                right_track_x,
+                self.__angle,
+                self.__speed_right/ 255.0*actual_time_stamp*self.__max_speed
+            )
+            right_track_y = vec_sum_y(
+                right_track_y,
+                self.__angle,
+                self.__speed_right / 255.0*actual_time_stamp*self.__max_speed
+            )
+            left_track_x = vec_sum_x(
+                left_track_x,
+                self.__angle,
+                self.__speed_left / 255.0*actual_time_stamp*self.__max_speed
+            )
+            left_track_y = vec_sum_y(
+                left_track_y,
+                self.__angle,
+                self.__speed_left / 255.0*actual_time_stamp*self.__max_speed
+            )
+
+            # update the position of the robot
+            self.__pos_x = (right_track_x + left_track_x) / 2
+            self.__pos_y = (right_track_y + left_track_y) / 2
+
+            # update the angle
+            delta_x = right_track_x - left_track_x
+            delta_y = right_track_y - left_track_y
+
+            if delta_x == 0:
+                if delta_y >= 0:
+                    angle = np.pi/2
+                else:
+                    angle = -np.pi/2
+            else:
+                angle = np.arctan(-delta_y/delta_x)
+
+                if delta_x <= 0:
+                    angle += np.pi
+
+            # keep it in range
+            while angle < 0 or angle > np.pi*2:
+                if angle < 0:
+                    angle += np.pi*2
+                elif angle > np.pi*2:
+                    angle -= np.pi * 2
+
+            self.__angle = angle
 
             # keep the robot inside the map
             self.__pos_x = np.clip(self.__pos_x, min_pos_x, max_pos_x)
@@ -162,8 +293,6 @@ class Robot:
             else:
                 time.sleep(time_to_wait)
             time_sample = time.time()
-
-    #sum to a x value a vector
 
     # update the top view
     def __update_top_view(self):
@@ -190,8 +319,8 @@ class Robot:
                 center_y = self.__cm_to_pixel(self.__pos_y)
 
                 # the new coordinates of the new map
-                x1 = int(center_x-new_res_x/2)
-                y1 = int(center_y-new_res_y/2)
+                x1 = int(center_x - new_res_x/2)
+                y1 = int(center_y - new_res_y/2)
                 x2 = int(center_x + new_res_x / 2)
                 y2 = int(center_y + new_res_y / 2)
 
@@ -221,13 +350,7 @@ class Robot:
 
             cv2.imshow("TOP VIEW use Robot(..., top_view_enable = False) to disable", img)
             cv2.waitKey(1)
-            time.sleep(0.05)
-
-    # set the speed of the motors
-    def set_motors_speeds(self, right: int, left: int):
-        assert -255 <= right <= 255 and -255 <= left <= 255, "the speeds of the motor MUST be in the -255 to 255 range"
-        self.__speed_right = right
-        self.__speed_left = left
+            #time.sleep(0.001)
 
     # return an image that represent the robot for the visualization
     def __get_robot_image(self):
@@ -309,33 +432,17 @@ class Robot:
 
 def test():
 
-    r = Robot("../maps/map_1.png", top_view_zoom=3, start_angle=-3.1415/2)
+    r = Robot("../maps/map_1.png", top_view_zoom=8, start_angle=0, start_pos_x=100, start_pos_y=100)
 
-    # image = r.get_robot_image()
-    #
-    #
-    #
-    # mapp = cv2.imread("../maps/map_1.png")
-    #
-    # mapp = mapp[:, :, 0:3]
-    #
-    # print("out: ", mapp.shape)
-    #
-    # new = copy_and_paste_image(mapp,image,500,500)
-    #
-    #
-    # cv2.imshow("test", new)
-    # cv2.waitKey(0)
-
-    r.set_motors_speeds(100, 236)
+    r.set_motors_speeds(0, 255)
 
     for i in range(1000):
-        print(r)
-        time.sleep(0.2)
+        img = r.get_camera_view()
+        cv2.imshow("view",img)
+        cv2.waitKey(1)
+        time.sleep(0.02)
 
     r.__del__()
-
-
 
     # track = cv2.imread("../images/track.png", cv2.IMREAD_UNCHANGED)
     #
