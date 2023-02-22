@@ -110,6 +110,11 @@ class Robot:
 
         image = image[y:y + height, x:x + width]
 
+        if image.shape[C] == 4:
+            image = image[:,:,0:3]
+
+        image = cv2.resize(image, (self.__output_resolution_x, self.__output_resolution_y))
+
         return image
 
     def __init__(self,
@@ -127,7 +132,9 @@ class Robot:
                  top_view_res_y: float = DEFAULT_TOP_VIEW_RES_Y,
                  top_view_enable: bool = DEFAULT_TOP_VIEW_ENABLE,
                  top_view_zoom: float = DEFAULT_TOP_VIEW_ZOOM,
-                 simulation_time_step: float = DEFAULT_SIMULATION_TIME_STEP
+                 simulation_time_step: float = DEFAULT_SIMULATION_TIME_STEP,
+                 output_resolution_x: int = DEFAULT_OUTPUT_RESOLUTION_X,
+                 output_resolution_y: int = DEFAULT_OUTPUT_RESOLUTION_Y
                  ):
 
         # x position in cm of the robot
@@ -166,7 +173,9 @@ class Robot:
         self.__top_view_zoom = top_view_zoom
         # the time step of the simulation
         self.__simulation_time_step = simulation_time_step
-
+        # the resolution of the output image
+        self.__output_resolution_x = output_resolution_x
+        self.__output_resolution_y = output_resolution_y
         # launch the top view
         if top_view_enable:
             self.__top_view_thread = Thread(target=self.__update_top_view, args=())
