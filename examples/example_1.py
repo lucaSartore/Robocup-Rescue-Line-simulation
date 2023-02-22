@@ -7,7 +7,7 @@ from robot_simulation import Robot
 
 def main():
     # create the instance of the robor
-    robot = Robot('../maps/map_1.png')
+    robot = Robot('../maps/map_1.png', top_view_zoom=4)
 
     while True:
         # get the image
