@@ -26,16 +26,16 @@ DEFAULT_ROBOT_WIGHT: float = 17
 DEFAULT_PPI: int = 17
 
 # the default maximum speed of the robot (in cm/s)
-DEFAULT_MAX_SPEED: float = 10.
+DEFAULT_MAX_SPEED: float = 20.
 
 # the default starting position of the robot presented in cm
-DEFAULT_START_POS_X: float = 0.
+DEFAULT_START_POS_X: float = 20.
 
 # the default starting position of the robot presented in cm
-DEFAULT_START_POS_Y: float = 0.
+DEFAULT_START_POS_Y: float = 20.
 
 # the default starting angle of the robot presented in radiant
-DEFAULT_START_ANGLE: float = 0.
+DEFAULT_START_ANGLE: float = -np.pi*3/4
 
 # the resolution of the top view
 DEFAULT_TOP_VIEW_RES_X: int = 1100
@@ -87,6 +87,9 @@ class Robot:
             left (int): speed to set to the left motor, has to be in the -255 to 255 range
 
         """
+        right = int(right)
+        left = int(left)
+
         assert -255 <= right <= 255 and -255 <= left <= 255, "the speeds of the motor MUST be in the -255 to 255 range"
         self.__speed_right = right
         self.__speed_left = left
@@ -113,7 +116,7 @@ class Robot:
                 )
             ),
         )
-        theta = self.__angle
+        theta = -self.__angle
         width = self.__cm_to_pixel(self.__camera_x_dimension)
         height = self.__cm_to_pixel(self.__camera_y_dimension)
 
@@ -528,4 +531,4 @@ def test():
     # cv2.waitKey(1000000000)
 
 
-test()
+#test()
