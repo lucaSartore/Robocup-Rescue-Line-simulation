@@ -34,3 +34,7 @@ the robot is highlight customizable to better fit your needs...
 you can customize things like the width and speed of the robot, the dimension and position of the camera and many more.
 
 do customize your robot yuo need to pass the respective parameter to the robot constructor, the documentation is in the code [here](https://github.com/lucaSartore/Robocup-Rescue-Line-simulation/blob/main/src/robot_simulation.py#L165)
+
+## Explanation of the line follower software
+
+if you want more details on how our original program work, you can find a full explanation [here](https://github.com/lucaSartore/Robocup-Rescue-Line-simulation/blob/main/line_follower_program.pdf)
